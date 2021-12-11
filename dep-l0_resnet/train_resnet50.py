@@ -25,7 +25,7 @@ parser.add_argument('data', metavar='DIR',
                     help='path to dataset')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
-parser.add_argument('--epochs', default=90, type=int, metavar='N',
+parser.add_argument('--epochs', default=10, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
@@ -79,7 +79,7 @@ parser.add_argument('--gpu_id', default=None, type=str,
 
 args = parser.parse_args()
 
-os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id
+# os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id
 
 best_acc1 = 0
 TIME_NOW = datetime.now().isoformat()
@@ -171,7 +171,7 @@ def main_worker(gpu, ngpus_per_node, args):
     criterion = nn.CrossEntropyLoss().cuda(args.gpu)
     def loss_function(output, target_var, model):
         loss = criterion(output, target_var)
-        reg = model.module.regularization()
+        reg = model.regularization()
         total_loss = loss + reg
         return total_loss
 
@@ -269,7 +269,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
         # fine-tuning
         if epoch == args.epochs:
-            model.module.fine_tune()
+            model.fine_tune()
 
         # train for one epoch
         train(train_loader, model, loss_function, optimizer_resnet, optimizer_gate, epoch, args)
@@ -284,15 +284,15 @@ def main_worker(gpu, ngpus_per_node, args):
         # remember best acc@1 and save checkpoint
         best_acc1 = max(acc1, best_acc1)
 
-        # if not args.multiprocessing_distributed or (args.multiprocessing_distributed
-        #         and args.rank % ngpus_per_node == 0):
-        #     save_checkpoint({
-        #         'epoch': epoch + 1,
-        #         'state_dict': model.state_dict(),
-        #         'best_acc1': best_acc1,
-        #         # 'optimizer_gate' : optimizer_gate.state_dict(),
-        #         'optimizer_resnet' : optimizer_resnet.state_dict(),
-        #     }, is_best)
+        if not args.multiprocessing_distributed or (args.multiprocessing_distributed
+                and args.rank % ngpus_per_node == 0):
+            save_checkpoint({
+                'epoch': epoch + 1,
+                'state_dict': model.state_dict(),
+                'best_acc1': best_acc1,
+                # 'optimizer_gate' : optimizer_gate.state_dict(),
+                'optimizer_resnet' : optimizer_resnet.state_dict(),
+            }, is_best=True)
 
 
 def list2str(zs):
@@ -317,7 +317,7 @@ def train(train_loader, model, criterion, optimizer, optimizer2, epoch, args):
 
     end = time.time()
 
-    layers = model.module.conv_layers + model.module.sparse_layers + model.module.fc_layers
+    layers = model.conv_layers + model.sparse_layers + model.fc_layers
     for i, (images, target) in enumerate(train_loader):
         # measure data loading time
 
@@ -417,14 +417,14 @@ def validate(val_loader, model, criterion, epoch, args):
         writer.add_scalar('test/acc5', top5.avg, epoch)
     return top1.avg
 
-# ckp_dir = 'checkpoint' + TIME_NOW
-# os.mkdir(ckp_dir)
-#
-# def save_checkpoint(state, is_best, filename=ckp_dir+'/checkpoint.pth.tar'):
-#
-#     torch.save(state, filename)
-#     if is_best:
-#         shutil.copyfile(filename, ckp_dir+'/model_best.pth.tar')
+ckp_dir = 'checkpoint' + TIME_NOW
+os.mkdir(ckp_dir)
+
+def save_checkpoint(state, is_best, filename=ckp_dir+'/checkpoint.pth.tar'):
+
+    torch.save(state, filename)
+    if is_best:
+        shutil.copyfile(filename, ckp_dir+'/model_best.pth.tar')
 
 
 class AverageMeter(object):
@@ -487,7 +487,7 @@ def accuracy(output, target, topk=(1,)):
 
         res = []
         for k in topk:
-            correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
+            correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
 

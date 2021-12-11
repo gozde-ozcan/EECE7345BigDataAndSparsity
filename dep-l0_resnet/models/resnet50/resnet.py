@@ -132,7 +132,7 @@ class ResNet50(nn.Module):
                            *[(64, 64)] * 6]
         gens = []
         for in_c, out_c in (in_out_backward if self.back_dep else in_out_forward):
-            gen = nn.Linear(in_c, out_c).cuda()
+            gen = nn.Linear(in_c, out_c)
             nn.init.normal_(gen.bias, 3, .01)
             gens.append(gen)
         self.gens = nn.Sequential(*gens)
@@ -156,7 +156,7 @@ class ResNet50(nn.Module):
 
 
     def forward(self, x):
-        loga = torch.Tensor(self.gens[0].in_features).cuda()
+        loga = torch.Tensor(self.gens[0].in_features)
         loga.data.fill_(1)
         logas = []
         for i in range(len(self.gens)):
